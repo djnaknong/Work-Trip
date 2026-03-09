@@ -146,36 +146,34 @@ let markers = [], polylines = [], roundTrip = false;
 // ── SDK 동적 로드 (appKey 포함) ───────────────────────────────────────────────
 function loadTmapSDK(appKey) {
   return new Promise((resolve, reject) => {
-    // 이미 로드되어 있으면 바로 resolve
-    if (typeof Tmapv2 !== 'undefined') { resolve(); return; }
+    // 이미 완전히 로드된 경우
+    if (typeof Tmapv2 !== 'undefined' && typeof Tmapv2.LatLng === 'function') {
+      resolve(); return;
+    }
 
     const existing = document.getElementById('tmapScript');
     if (existing) existing.remove();
 
-    // Tmap SDK는 callback 파라미터로 준비 완료를 알림
-    const cbName = '__tmapReady_' + Date.now();
-    window[cbName] = () => {
-      delete window[cbName];
-      resolve();
-    };
-
     const script = document.createElement('script');
     script.id = 'tmapScript';
-    script.src = `https://apis.openapi.sk.com/tmap/jsv2?version=1&appKey=${encodeURIComponent(appKey)}&callback=${cbName}`;
-    script.onerror = () => {
-      delete window[cbName];
-      reject(new Error('Tmap SDK 로드 실패 — App Key를 확인해주세요'));
-    };
-    // callback이 안 불릴 경우 대비 타임아웃
-    const timeout = setTimeout(() => {
-      delete window[cbName];
-      // callback 없이도 Tmapv2가 있으면 OK
-      if (typeof Tmapv2 !== 'undefined') { resolve(); }
-      else { reject(new Error('Tmap SDK 초기화 타임아웃 — App Key를 확인해주세요')); }
-    }, 10000);
-    const origCb = window[cbName];
-    window[cbName] = () => { clearTimeout(timeout); origCb(); };
+    script.src = `https://apis.openapi.sk.com/tmap/jsv2?version=1&appKey=${encodeURIComponent(appKey)}`;
 
+    script.onload = () => {
+      // script onload 후에도 Tmapv2 내부 초기화가 비동기로 진행될 수 있음
+      // Tmapv2.LatLng 가 함수가 될 때까지 폴링
+      let tries = 0;
+      const timer = setInterval(() => {
+        if (typeof Tmapv2 !== 'undefined' && typeof Tmapv2.LatLng === 'function') {
+          clearInterval(timer);
+          resolve();
+        } else if (++tries > 100) {
+          clearInterval(timer);
+          reject(new Error('Tmap SDK 초기화 실패 — App Key를 확인해주세요'));
+        }
+      }, 100);
+    };
+
+    script.onerror = () => reject(new Error('Tmap SDK 로드 실패 — 네트워크 또는 App Key 오류'));
     document.head.appendChild(script);
   });
 }
