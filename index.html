@@ -1,243 +1,472 @@
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TMAP 출장 경로 최적화</title>
+<title>TMAP 출장 경로 최적화 - 안정화 버전</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
-body{margin:0;font-family:Arial;background:#0f172a;color:white}
-.wrapper{display:grid;grid-template-columns:360px 1fr;height:100vh}
-.panel{padding:20px;background:#020617;overflow:auto}
-input,textarea{width:100%;padding:10px;margin:8px 0;background:#111827;border:1px solid #334155;color:white;border-radius:6px}
-button{width:100%;padding:12px;background:#e11d48;border:none;border-radius:6px;font-weight:bold;color:white;cursor:pointer}
-#map{width:100%;height:100%}
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#080c14; --panel:#0c1220; --card:#111827; --border:#1e2d45;
+    --accent:#e8372e; --accentH:#ff4f46; --blue:#3b82f6; --green:#10b981; --gold:#f59e0b;
+    --text:#e2e8f0; --muted:#64748b; --muted2:#94a3b8;
+  }
+  body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex}
+  .panel{width:380px;min-width:380px;height:100vh;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+  .panel-head{padding:20px 20px 8px}
+  .brand{display:flex;align-items:center;gap:10px}
+  .brand-chip{background:var(--accent);color:#fff;font-size:10px;font-weight:900;letter-spacing:.1em;padding:4px 9px;border-radius:5px}
+  .brand-title{font-size:15px;font-weight:800}
+  .brand-sub{font-size:11px;color:var(--muted);margin-top:3px}
+  .panel-body{flex:1;overflow-y:auto;padding:12px 20px 20px}
+  .field{margin-bottom:14px}
+  .lbl{display:block;font-size:10px;font-weight:700;color:var(--muted2);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px}
+  input,textarea{width:100%;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Noto Sans KR',sans-serif;font-size:13px;padding:10px 12px;outline:none}
+  textarea{height:120px;line-height:1.8;resize:vertical}
+  input:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(59,130,246,.12)}
+  input::placeholder,textarea::placeholder{color:var(--muted)}
+  .hint{font-size:11px;color:var(--muted);line-height:1.5;margin-top:5px}
+  .toggle-row{display:flex;gap:6px}
+  .toggle{flex:1;padding:9px;border-radius:7px;border:1px solid var(--border);background:transparent;color:var(--muted2);font-family:'Noto Sans KR',sans-serif;font-size:11px;font-weight:700;cursor:pointer}
+  .toggle.on{background:rgba(59,130,246,.1);border-color:var(--blue);color:#93c5fd}
+  .run-btn{width:100%;padding:13px;border:none;border-radius:9px;background:var(--accent);color:#fff;font-family:'Noto Sans KR',sans-serif;font-size:14px;font-weight:800;cursor:pointer;transition:all .2s}
+  .run-btn:hover:not(:disabled){background:var(--accentH)}
+  .run-btn:disabled{opacity:.55;cursor:not-allowed}
+  .prog-wrap{margin-top:12px;display:none}
+  .prog-track{background:var(--card);border:1px solid var(--border);border-radius:99px;height:4px;overflow:hidden;margin-bottom:6px}
+  .prog-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--blue));width:0%;transition:width .3s ease}
+  .prog-txt{font-size:11px;color:var(--muted2);font-family:monospace}
+  .msg{margin-top:10px;border-radius:8px;padding:10px 12px;font-size:12px;line-height:1.6;display:none;white-space:pre-wrap}
+  .msg.err{display:none;background:rgba(232,55,46,.07);border:1px solid rgba(232,55,46,.22);color:#fca5a5}
+  .msg.ok{display:none;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.22);color:#a7f3d0}
+  .result-sec{display:none;margin-top:18px}
+  .stats-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+  .stat-box{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:11px 12px}
+  .stat-v{font-size:16px;font-weight:800;color:var(--gold);font-family:monospace;display:block;margin-bottom:2px}
+  .stat-l{font-size:10px;color:var(--muted)}
+  .stop-list{display:flex;flex-direction:column;gap:4px}
+  .stop-item{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:9px 11px}
+  .stop-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex-shrink:0;font-family:monospace}
+  .n-s{background:var(--green);color:#fff}.n-w{background:var(--blue);color:#fff}.n-e{background:var(--gold);color:#111}
+  .stop-info{flex:1;min-width:0}
+  .stop-name{font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .stop-meta{font-size:10px;color:var(--muted);margin-top:1px}
+  .leg-row{display:flex;align-items:center;gap:6px;padding:2px 11px 2px 30px;font-size:10px;color:var(--muted);font-family:monospace}
+  .leg-dot{width:1px;height:10px;background:#243347}
+  #map-wrap{flex:1;height:100vh;position:relative}
+  #map{width:100%;height:100%}
+  #map-placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:var(--bg);color:var(--muted);font-size:13px;text-align:center}
+  #map-placeholder .ico{font-size:40px;opacity:.4}
+  @media (max-width:700px){
+    body{flex-direction:column;overflow:auto}
+    .panel{width:100%;min-width:0;height:auto}
+    #map-wrap{height:55vh;flex:none}
+  }
 </style>
 </head>
-
 <body>
-
-<div class="wrapper">
-
 <div class="panel">
+  <div class="panel-head">
+    <div class="brand">
+      <div class="brand-chip">TMAP</div>
+      <div>
+        <div class="brand-title">출장 경로 최적화</div>
+        <div class="brand-sub">클릭 반응 없음 문제 수정 · SDK 로드 안정화</div>
+      </div>
+    </div>
+  </div>
+  <div class="panel-body">
+    <div class="field">
+      <label class="lbl">TMAP App Key</label>
+      <input id="appkey" type="password" placeholder="발급받은 App Key 입력">
+      <div class="hint">입력한 키는 이 브라우저에만 저장됩니다.</div>
+    </div>
+    <div class="field">
+      <label class="lbl">출발지</label>
+      <input id="start" placeholder="예: 충청남도 아산시 배방읍 희망로 46">
+    </div>
+    <div class="field">
+      <label class="lbl">방문지 (한 줄에 하나 · 최대 10개)</label>
+      <textarea id="dests" placeholder="충청남도 천안시 서북구 불당26로 79&#10;충청남도 아산시 온천대로 1459&#10;충청남도 천안시 동남구 신부동 429"></textarea>
+    </div>
+    <div class="field">
+      <label class="lbl">최적화 방식</label>
+      <div class="toggle-row">
+        <button class="toggle on" id="t-one" type="button">최소 이동시간</button>
+        <button class="toggle" id="t-rtn" type="button">출발지 복귀</button>
+      </div>
+    </div>
+    <button class="run-btn" id="runBtn" type="button">최적 경로 계산</button>
+    <div class="prog-wrap" id="progWrap">
+      <div class="prog-track"><div class="prog-fill" id="progFill"></div></div>
+      <div class="prog-txt" id="progTxt">준비 중…</div>
+    </div>
+    <div class="msg err" id="errBox"></div>
+    <div class="msg ok" id="okBox"></div>
 
-<h2>출장 경로 최적화</h2>
-
-<label>TMAP APPKEY</label>
-<input id="appkey" placeholder="TMAP APPKEY 입력">
-
-<label>출발지</label>
-<input id="start" placeholder="예: 충남 당진시">
-
-<label>방문지 (한 줄 하나)</label>
-<textarea id="dests" rows="6"></textarea>
-
-<button onclick="run()">최적 경로 계산</button>
-
-<div id="result"></div>
-
+    <div class="result-sec" id="resultSec">
+      <div class="stats-row" id="statsRow"></div>
+      <div class="stop-list" id="stopList"></div>
+    </div>
+  </div>
 </div>
 
-<div id="map"></div>
-
+<div id="map-wrap">
+  <div id="map"></div>
+  <div id="map-placeholder">
+    <div class="ico">🗺️</div>
+    <div>App Key와 주소를 입력한 뒤<br>최적 경로 계산을 눌러주세요</div>
+  </div>
 </div>
 
 <script>
+let map = null;
+let markers = [];
+let polylines = [];
+let roundTrip = false;
+let sdkLoadedKey = null;
 
-let map
-let markers=[]
-let polylines=[]
+const $ = id => document.getElementById(id);
 
-async function loadSDK(key){
+function setMode(mode) {
+  roundTrip = mode === 'rtn';
+  $('t-one').classList.toggle('on', mode === 'one');
+  $('t-rtn').classList.toggle('on', mode === 'rtn');
+}
+$('t-one').addEventListener('click', () => setMode('one'));
+$('t-rtn').addEventListener('click', () => setMode('rtn'));
 
-return new Promise((resolve,reject)=>{
-
-if(window.Tmapv2){
-resolve()
-return
+function setProgress(percent, text) {
+  $('progFill').style.width = percent + '%';
+  $('progTxt').textContent = text;
+}
+function showError(msg) {
+  $('errBox').textContent = '⚠️ ' + msg;
+  $('errBox').style.display = 'block';
+  $('okBox').style.display = 'none';
+}
+function showOk(msg) {
+  $('okBox').textContent = '✅ ' + msg;
+  $('okBox').style.display = 'block';
+  $('errBox').style.display = 'none';
+}
+function clearMessages() {
+  $('errBox').style.display = 'none';
+  $('okBox').style.display = 'none';
+}
+function fmt(sec) {
+  if (!sec && sec !== 0) return '--';
+  const m = Math.round(Number(sec) / 60);
+  return m < 60 ? m + '분' : Math.floor(m / 60) + '시간 ' + (m % 60) + '분';
+}
+function fmtD(v) {
+  if (!v && v !== 0) return '--';
+  const n = Number(v);
+  return n >= 1000 ? (n / 1000).toFixed(1) + 'km' : Math.round(n) + 'm';
+}
+function nowStr() {
+  const d = new Date(), p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}${p(d.getHours())}${p(d.getMinutes())}`;
+}
+function safeNum(v) {
+  const n = parseFloat(v);
+  return Number.isFinite(n) ? n : null;
+}
+function pickLatLon(obj) {
+  const candidates = [
+    [obj?.newLat, obj?.newLon],
+    [obj?.lat, obj?.lon],
+    [obj?.frontLat, obj?.frontLon],
+    [obj?.centerLat, obj?.centerLon],
+    [obj?.noorLat, obj?.noorLon]
+  ];
+  for (const [lat, lon] of candidates) {
+    const la = safeNum(lat), lo = safeNum(lon);
+    if (la == null || lo == null) continue;
+    if (Math.abs(la) <= 90 && Math.abs(lo) <= 180) return { lat: la, lon: lo };
+  }
+  return null;
 }
 
-const script=document.createElement("script")
-script.src=`https://apis.openapi.sk.com/tmap/jsv2?version=1&appKey=${key}`
+async function loadTmapSDK(appKey) {
+  if (window.Tmapv2 && sdkLoadedKey === appKey) return;
+  if (!appKey) throw new Error('App Key를 입력해주세요.');
 
-script.onload=()=>{
+  const old = document.getElementById('tmap-sdk-script');
+  if (old) old.remove();
 
-let wait=setInterval(()=>{
-
-if(window.Tmapv2){
-clearInterval(wait)
-resolve()
+  await new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.id = 'tmap-sdk-script';
+    script.src = `https://apis.openapi.sk.com/tmap/jsv2?version=1&appKey=${encodeURIComponent(appKey)}`;
+    script.async = true;
+    script.onload = () => {
+      let tries = 0;
+      const timer = setInterval(() => {
+        if (window.Tmapv2) {
+          clearInterval(timer);
+          sdkLoadedKey = appKey;
+          resolve();
+        } else if (++tries > 50) {
+          clearInterval(timer);
+          reject(new Error('Tmap SDK 초기화 실패'));
+        }
+      }, 100);
+    };
+    script.onerror = () => reject(new Error('Tmap SDK 로드 실패'));
+    document.head.appendChild(script);
+  });
 }
 
-},100)
-
+function initMap() {
+  if (map) return;
+  $('map-placeholder').style.display = 'none';
+  map = new Tmapv2.Map('map', {
+    center: new Tmapv2.LatLng(36.5, 127.5),
+    width: '100%',
+    height: '100%',
+    zoom: 7
+  });
 }
 
-script.onerror=()=>reject("TMAP SDK 로드 실패")
-
-document.head.appendChild(script)
-
-})
-
+function clearMap() {
+  markers.forEach(m => { try { m.setMap(null); } catch(e) {} });
+  polylines.forEach(p => { try { p.setMap(null); } catch(e) {} });
+  markers = [];
+  polylines = [];
 }
 
-function initMap(){
-
-map=new Tmapv2.Map("map",{
-center:new Tmapv2.LatLng(36.35,127.38),
-width:"100%",
-height:"100%",
-zoom:7
-})
-
+function addMarker(lat, lon, label, type) {
+  const bg = type === 'S' ? '#10b981' : type === 'E' ? '#f59e0b' : '#3b82f6';
+  const tc = type === 'E' ? '#111' : '#fff';
+  const icon = new Tmapv2.Icon({
+    content: `<div style="width:30px;height:30px;border-radius:50%;background:${bg};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:${tc};font-family:sans-serif;box-shadow:0 2px 10px rgba(0,0,0,.5);border:2px solid rgba(255,255,255,.25)">${label}</div>`,
+    size: new Tmapv2.Size(30, 30),
+    anchor: new Tmapv2.Point(15, 15)
+  });
+  const marker = new Tmapv2.Marker({
+    position: new Tmapv2.LatLng(lat, lon),
+    icon,
+    map
+  });
+  markers.push(marker);
 }
 
-function clearMap(){
-
-markers.forEach(m=>m.setMap(null))
-polylines.forEach(p=>p.setMap(null))
-
-markers=[]
-polylines=[]
-
+function drawLine(coords) {
+  if (coords.length < 2) return;
+  const poly = new Tmapv2.Polyline({
+    path: coords.map(c => new Tmapv2.LatLng(c[1], c[0])),
+    strokeColor: '#e8372e',
+    strokeWeight: 4,
+    strokeOpacity: .85,
+    map
+  });
+  polylines.push(poly);
 }
 
-function addMarker(lat,lon,label){
+async function geocode(addr, key) {
+  const res = await fetch(
+    `https://apis.openapi.sk.com/tmap/geo/fullAddrGeo?version=1&fullAddr=${encodeURIComponent(addr)}&coordType=WGS84GEO&addressFlag=F01&count=1`,
+    { headers: { appKey: key, Accept: 'application/json' } }
+  );
+  if (!res.ok) throw new Error(`지오코딩 실패 (HTTP ${res.status})`);
+  const data = await res.json();
+  const pos = pickLatLon(data?.coordinateInfo?.coordinate?.[0] || {});
+  if (pos) return pos;
 
-const marker=new Tmapv2.Marker({
-position:new Tmapv2.LatLng(lat,lon),
-label:label,
-map:map
-})
+  const res2 = await fetch(
+    `https://apis.openapi.sk.com/tmap/pois?version=1&searchKeyword=${encodeURIComponent(addr)}&resCoordType=WGS84GEO&reqCoordType=WGS84GEO&count=1&searchtypCd=A`,
+    { headers: { appKey: key, Accept: 'application/json' } }
+  );
+  if (!res2.ok) throw new Error(`POI 검색 실패 (HTTP ${res2.status})`);
+  const data2 = await res2.json();
+  const poi = data2?.searchPoiInfo?.pois?.poi?.[0];
+  const pos2 = pickLatLon(poi || {});
+  if (pos2) return pos2;
 
-markers.push(marker)
-
+  throw new Error(`주소를 찾을 수 없습니다: "${addr}"`);
 }
 
-function drawLine(coords){
+async function optimize(startGeo, destGeos, key) {
+  const endGeo = roundTrip ? startGeo : destGeos[destGeos.length - 1];
+  const viaList = roundTrip ? destGeos : destGeos.slice(0, -1);
 
-const path=coords.map(c=>new Tmapv2.LatLng(c[1],c[0]))
+  const body = {
+    reqCoordType:'WGS84GEO',
+    resCoordType:'WGS84GEO',
+    startX:String(startGeo.lon),
+    startY:String(startGeo.lat),
+    startName:'출발',
+    startTime:nowStr(),
+    endX:String(endGeo.lon),
+    endY:String(endGeo.lat),
+    endName: roundTrip ? '복귀' : '도착',
+    endPoiId:'',
+    searchOption:'0',
+    carType:'0',
+    viaPoints: viaList.map((p, i) => ({
+      viaPointId:String(i + 1),
+      viaPointName:p.name || ('P' + (i + 1)),
+      viaDetailAddress:'',
+      viaX:String(p.lon),
+      viaY:String(p.lat),
+      viaPoiId:'',
+      viaTime:0,
+      wishStartTime:'',
+      wishEndTime:''
+    }))
+  };
 
-const poly=new Tmapv2.Polyline({
-path:path,
-strokeColor:"#ff0000",
-strokeWeight:5,
-map:map
-})
-
-polylines.push(poly)
-
+  const res = await fetch('https://apis.openapi.sk.com/tmap/routes/routeOptimization10?version=1', {
+    method:'POST',
+    headers:{ appKey:key, 'Content-Type':'application/json', Accept:'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) throw new Error(`최적화 API 오류 (HTTP ${res.status})`);
+  return await res.json();
 }
 
-async function geocode(addr,key){
+function renderResult(result, startAddr, lines, destGeos) {
+  const features = result.features || [];
+  const allCoords = [];
+  const vias = roundTrip ? destGeos : destGeos.slice(0, -1);
+  const stops = [];
 
-const url=`https://apis.openapi.sk.com/tmap/geo/fullAddrGeo?version=1&fullAddr=${encodeURIComponent(addr)}&coordType=WGS84GEO&addressFlag=F01`
+  features.forEach(f => {
+    if (f.geometry?.type === 'LineString') allCoords.push(...f.geometry.coordinates);
+  });
+  drawLine(allCoords);
 
-const res=await fetch(url,{headers:{appKey:key}})
-const data=await res.json()
+  features.filter(f => f.geometry?.type === 'Point').forEach(f => {
+    const pt = f.properties?.pointType || '';
+    const lon = f.geometry.coordinates[0];
+    const lat = f.geometry.coordinates[1];
+    const pr = f.properties || {};
 
-const c=data.coordinateInfo.coordinate[0]
+    if (pt === 'S') {
+      addMarker(lat, lon, 'S', 'S');
+      stops.push({ order:0, type:'S', name:startAddr, time:null, dist:null });
+    } else if (pt === 'E') {
+      addMarker(lat, lon, 'E', 'E');
+      stops.push({
+        order:9999,
+        type:'E',
+        name:roundTrip ? '출발지 복귀' : lines[lines.length - 1],
+        time:pr.time,
+        dist:pr.distance
+      });
+    } else if (/^B\d+$/.test(pt)) {
+      const idx = parseInt(pt.slice(1), 10);
+      const vid = parseInt(pr.viaPointId || '0', 10);
+      addMarker(lat, lon, String(idx), 'W');
+      stops.push({
+        order:idx,
+        type:'W',
+        name:vias[vid - 1]?.name || pr.viaPointName || ('경유지 ' + idx),
+        time:pr.time,
+        dist:pr.distance
+      });
+    }
+  });
 
-return{
-lat:parseFloat(c.newLat||c.lat),
-lon:parseFloat(c.newLon||c.lon)
+  stops.sort((a, b) => a.order - b.order);
+
+  $('statsRow').innerHTML = `
+    <div class="stat-box"><span class="stat-v">${fmt(result.properties?.totalTime)}</span><span class="stat-l">총 이동시간</span></div>
+    <div class="stat-box"><span class="stat-v">${fmtD(result.properties?.totalDistance)}</span><span class="stat-l">총 거리</span></div>`;
+
+  const listEl = $('stopList');
+  listEl.innerHTML = '';
+  stops.forEach((s, i) => {
+    const nc = s.type === 'S' ? 'n-s' : s.type === 'E' ? 'n-e' : 'n-w';
+    const nl = s.type === 'S' ? 'S' : s.type === 'E' ? 'E' : String(s.order);
+    const item = document.createElement('div');
+    item.className = 'stop-item';
+    item.innerHTML = `
+      <div class="stop-num ${nc}">${nl}</div>
+      <div class="stop-info">
+        <div class="stop-name">${s.name}</div>
+        <div class="stop-meta">${s.time || s.dist ? '이전 구간 · ' + fmt(s.time) + ' · ' + fmtD(s.dist) : '출발지'}</div>
+      </div>`;
+    listEl.appendChild(item);
+
+    if (i < stops.length - 1) {
+      const nxt = stops[i + 1];
+      const leg = document.createElement('div');
+      leg.className = 'leg-row';
+      leg.innerHTML = `<div class="leg-dot"></div>↓ ${fmt(nxt?.time)} / ${fmtD(nxt?.dist)}`;
+      listEl.appendChild(leg);
+    }
+  });
+
+  $('resultSec').style.display = 'block';
 }
 
+async function run() {
+  const key = $('appkey').value.trim();
+  const startAddr = $('start').value.trim();
+  const lines = $('dests').value.split('\n').map(s => s.trim()).filter(Boolean);
+
+  clearMessages();
+  $('resultSec').style.display = 'none';
+
+  if (!key) return showError('App Key를 입력해주세요.');
+  if (!startAddr) return showError('출발지를 입력해주세요.');
+  if (!lines.length) return showError('방문지를 1개 이상 입력해주세요.');
+  if (lines.length > 10) return showError('방문지는 최대 10개까지 가능합니다.');
+
+  localStorage.setItem('tmap_route_key', key);
+  $('runBtn').disabled = true;
+  $('progWrap').style.display = 'block';
+
+  try {
+    setProgress(5, 'Tmap SDK 로드 중…');
+    await loadTmapSDK(key);
+
+    setProgress(12, '지도 초기화 중…');
+    initMap();
+    clearMap();
+
+    setProgress(18, '출발지 검색 중…');
+    const startGeo = await geocode(startAddr, key);
+    startGeo.name = startAddr;
+
+    const destGeos = [];
+    for (let i = 0; i < lines.length; i++) {
+      setProgress(18 + ((i + 1) / lines.length) * 35, `방문지 검색 중… (${i + 1}/${lines.length})`);
+      const g = await geocode(lines[i], key);
+      g.name = lines[i];
+      destGeos.push(g);
+    }
+
+    setProgress(60, 'TMAP 경유지 최적화 중…');
+    const result = await optimize(startGeo, destGeos, key);
+
+    setProgress(85, '지도와 목록 표시 중…');
+    renderResult(result, startAddr, lines, destGeos);
+
+    map.setCenter(new Tmapv2.LatLng(startGeo.lat, startGeo.lon));
+    map.setZoom(10);
+
+    setProgress(100, '완료');
+    showOk('정상적으로 계산되었습니다.');
+    setTimeout(() => { $('progWrap').style.display = 'none'; }, 800);
+  } catch (err) {
+    $('progWrap').style.display = 'none';
+    showError(err?.message || String(err));
+    console.error(err);
+  } finally {
+    $('runBtn').disabled = false;
+  }
 }
 
-async function optimize(start,points,key){
+$('runBtn').addEventListener('click', run);
 
-const body={
-reqCoordType:"WGS84GEO",
-resCoordType:"WGS84GEO",
-startX:String(start.lon),
-startY:String(start.lat),
-startName:"출발",
-startTime:"202601010900",
-endX:String(points[points.length-1].lon),
-endY:String(points[points.length-1].lat),
-endName:"도착",
-searchOption:"0",
-viaPoints:points.slice(0,-1).map((p,i)=>({
-viaPointId:String(i+1),
-viaPointName:"P"+(i+1),
-viaX:String(p.lon),
-viaY:String(p.lat)
-}))
-}
-
-const res=await fetch("https://apis.openapi.sk.com/tmap/routes/routeOptimization10?version=1",{
-method:"POST",
-headers:{
-appKey:key,
-"Content-Type":"application/json"
-},
-body:JSON.stringify(body)
-})
-
-return await res.json()
-
-}
-
-async function run(){
-
-const key=document.getElementById("appkey").value.trim()
-const startAddr=document.getElementById("start").value.trim()
-const destLines=document.getElementById("dests").value.split("\n").filter(x=>x.trim())
-
-if(!key) return alert("APPKEY 입력")
-
-await loadSDK(key)
-
-if(!map) initMap()
-
-clearMap()
-
-const start=await geocode(startAddr,key)
-
-const dests=[]
-
-for(let d of destLines){
-
-const g=await geocode(d,key)
-dests.push(g)
-
-}
-
-const result=await optimize(start,dests,key)
-
-const features=result.features
-
-const coords=[]
-
-features.forEach(f=>{
-
-if(f.geometry.type==="LineString"){
-coords.push(...f.geometry.coordinates)
-}
-
-if(f.geometry.type==="Point"){
-
-const lon=f.geometry.coordinates[0]
-const lat=f.geometry.coordinates[1]
-
-addMarker(lat,lon,f.properties.pointType)
-
-}
-
-})
-
-drawLine(coords)
-
-map.setCenter(new Tmapv2.LatLng(start.lat,start.lon))
-
-document.getElementById("result").innerHTML=
-"총 거리: "+(result.properties.totalDistance/1000).toFixed(1)+"km<br>"+
-"총 시간: "+Math.round(result.properties.totalTime/60)+"분"
-
-}
-
+window.addEventListener('DOMContentLoaded', () => {
+  const saved = localStorage.getItem('tmap_route_key');
+  if (saved) $('appkey').value = saved;
+});
 </script>
-
 </body>
 </html>
